@@ -224,10 +224,10 @@ body.fs-lg .land .sub{font-size:18px}
   .risks-grid{grid-template-columns:1fr}
   .site-footer{padding:20px 18px;flex-direction:column;align-items:flex-start}
 }
-#print-area{display:none}
+#print-area{position:fixed;left:-9999px;top:0;width:794px;background:#0d1829}
 @media print{
   body>*{display:none!important}
-  #print-area{display:block!important}
+  #print-area{display:block!important;position:static!important;left:auto!important;width:100%!important}
 }
 </style>
 </head>
@@ -1330,9 +1330,9 @@ function saveAnalytics(role, correct, total, maxLevel) {
   const TG_CHAT  = '370403604';
   const weakMap = new Map();
   state.answers.filter(a=>!a.isCorrect).forEach(a=>{
-    const q = Q.find(x=>x.id===a.id); if(!q) return;
-    if(!weakMap.has(q.topic)) weakMap.set(q.topic, new Set());
-    q.laws.forEach(l=>weakMap.get(q.topic).add(l));
+    if(!a.topic) return;
+    if(!weakMap.has(a.topic)) weakMap.set(a.topic, new Set());
+    (a.laws||[]).forEach(l=>weakMap.get(a.topic).add(l));
   });
   const uniqueWeak = weakMap.size === 0 ? '—'
     : [...weakMap.entries()].map(([t,ls])=>`• ${TOPIC_NAMES[t]||t} [${[...ls].join(', ')}]`).join('\n');
@@ -1453,14 +1453,13 @@ function savePDF() {
   buildReportHTML();
   const date = new Date().toISOString().slice(0,10);
   const el = document.getElementById('print-area');
-  el.style.display = 'block';
   html2pdf().set({
     margin: 0,
     filename: `МедЗнания_${ROLE_NAMES[state.role]}_${date}.pdf`,
-    image: { type: 'jpeg', quality: 0.97 },
-    html2canvas: { scale: 2, useCORS: true },
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#0d1829' },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  }).from(el).save().then(() => { el.style.display = 'none'; });
+  }).from(el).save();
 }
 
 function printPDF() {
