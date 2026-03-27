@@ -1382,85 +1382,87 @@ function buildReportHTML() {
   const recs = buildRecs(lawScores, pct, maxLevel);
   const date = new Date().toLocaleDateString('ru-RU');
 
-  // Weak topics with law labels
+  // Weak topics — используем поля прямо из ответа (без Q.find)
   const weakTopicMap = new Map();
   state.answers.filter(a=>!a.isCorrect).forEach(a=>{
-    const q = Q.find(x=>x.id===a.id); if(!q) return;
-    if(!weakTopicMap.has(q.topic)) weakTopicMap.set(q.topic, new Set());
-    q.laws.forEach(l=>weakTopicMap.get(q.topic).add(l));
+    if(!a.topic) return;
+    if(!weakTopicMap.has(a.topic)) weakTopicMap.set(a.topic, new Set());
+    (a.laws||[]).forEach(l=>weakTopicMap.get(a.topic).add(l));
   });
   const weakItemsHtml = [...weakTopicMap.entries()].map(([t,ls])=>
-    `<li style="margin-bottom:4px"><b>${TOPIC_NAMES[t]||t}</b> <span style="color:#b45309">[${[...ls].join(', ')}]</span></li>`
+    `<li style="margin-bottom:5px"><b style="color:#1e293b">${TOPIC_NAMES[t]||t}</b> <span style="color:#92400e;font-size:11px">[${[...ls].join(', ')}]</span></li>`
   ).join('');
 
   const lawRows = Object.entries(lawScores).filter(([,s])=>s.total>0).map(([law,s])=>{
     const p = Math.round(s.correct/s.total*100);
-    const col = p>=80?'#22c55e':p>=50?'#f59e0b':'#ef4444';
-    return `<tr style="border-bottom:1px solid #2a3a5c">
-      <td style="padding:7px 0;color:#e2e8f0">${LAW_META[law].name}</td>
-      <td style="padding:7px 8px"><div style="background:#1e2d47;border-radius:4px;height:8px;width:110px;display:inline-block;vertical-align:middle"><div style="background:${col};width:${p}%;height:100%;border-radius:4px"></div></div></td>
-      <td style="padding:7px 0;font-weight:bold;color:#c9a227;text-align:right">${s.correct}/${s.total} (${p}%)</td>
+    const col = p>=80?'#16a34a':p>=50?'#d97706':'#dc2626';
+    return `<tr style="border-bottom:1px solid #e2e8f0">
+      <td style="padding:8px 4px;color:#1e293b;font-size:12px">${LAW_META[law].name}</td>
+      <td style="padding:8px 8px"><div style="background:#e2e8f0;border-radius:4px;height:8px;width:120px;display:inline-block;vertical-align:middle"><div style="background:${col};width:${p}%;height:100%;border-radius:4px"></div></div></td>
+      <td style="padding:8px 4px;font-weight:bold;color:${col};text-align:right;font-size:12px">${s.correct}/${s.total} (${p}%)</td>
     </tr>`;
   }).join('');
 
-  const recsHtml = recs.map(r=>`<li style="margin-bottom:6px">${r.replace(/<[^>]+>/g,'')}</li>`).join('');
+  const recsHtml = recs.map(r=>`<li style="margin-bottom:7px;color:#374151">${r.replace(/<[^>]+>/g,'')}</li>`).join('');
 
-  document.getElementById('print-area').innerHTML = `
-    <div style="font-family:Arial,Helvetica,sans-serif;background:#0d1829;color:#e2e8f0;min-height:100vh;padding:32px 36px;-webkit-print-color-adjust:exact;print-color-adjust:exact">
-      <div style="border-bottom:3px solid #c9a227;padding-bottom:14px;margin-bottom:20px">
-        <div style="font-size:10px;color:#5a6a8a;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px">ЕАБР · МЕД · МедЗнания</div>
-        <div style="font-size:22px;font-weight:bold;color:#c9a227;letter-spacing:1px">ПРАВОВОЙ ПРОФИЛЬ СПЕЦИАЛИСТА</div>
-        <div style="font-size:10px;color:#5a6a8a;margin-top:4px">Антошина Елизавета · Бизнес-тренер медицинских команд · 2026</div>
+  const reportHtml = `
+    <div style="font-family:Arial,Helvetica,sans-serif;background:#ffffff;color:#1e293b;padding:32px 36px;max-width:800px;margin:0 auto">
+      <div style="background:#1e3a5f;padding:20px 24px;border-radius:10px;margin-bottom:22px">
+        <div style="font-size:9px;color:#93c5fd;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px">ЕАБР · МЕД · МедЗнания</div>
+        <div style="font-size:22px;font-weight:bold;color:#fbbf24;letter-spacing:1px">ПРАВОВОЙ ПРОФИЛЬ СПЕЦИАЛИСТА</div>
+        <div style="font-size:10px;color:#93c5fd;margin-top:4px">Антошина Елизавета · Бизнес-тренер медицинских команд · 2026</div>
       </div>
 
       <div style="display:flex;gap:14px;margin-bottom:18px">
-        <div style="flex:1;background:#132040;border:2px solid #c9a227;border-radius:10px;padding:16px;text-align:center">
-          <div style="font-size:44px;font-weight:bold;color:#c9a227;line-height:1">${correct}/${total}</div>
-          <div style="font-size:12px;color:#7a8aaa;margin-top:6px">${pct}% · Итоговый балл</div>
+        <div style="flex:1;border:2px solid #c9a227;border-radius:10px;padding:16px;text-align:center">
+          <div style="font-size:46px;font-weight:bold;color:#c9a227;line-height:1">${correct}/${total}</div>
+          <div style="font-size:12px;color:#64748b;margin-top:6px">${pct}% · Итоговый балл</div>
         </div>
-        <div style="flex:1;background:#132040;border:2px solid #c9a227;border-radius:10px;padding:16px;text-align:center;display:flex;flex-direction:column;justify-content:center">
-          <div style="font-size:18px;font-weight:bold;color:#c9a227">${levelName}</div>
-          <div style="font-size:12px;color:#7a8aaa;margin-top:6px">Уровень знаний · ${STARS[maxLevel]}</div>
+        <div style="flex:1;border:2px solid #c9a227;border-radius:10px;padding:16px;text-align:center;display:flex;flex-direction:column;justify-content:center">
+          <div style="font-size:20px;font-weight:bold;color:#c9a227">${levelName}</div>
+          <div style="font-size:12px;color:#64748b;margin-top:6px">${STARS[maxLevel]} · Достигнутый уровень</div>
         </div>
       </div>
 
-      <div style="background:#0f1e35;border-radius:8px;padding:10px 14px;font-size:11px;color:#7a8aaa;margin-bottom:20px">
-        Роль: <span style="color:#b4c6e0;font-weight:bold">${ROLE_NAMES[state.role]}</span> &nbsp;·&nbsp;
-        Дата: <span style="color:#b4c6e0;font-weight:bold">${date}</span> &nbsp;·&nbsp;
-        Время: <span style="color:#b4c6e0;font-weight:bold">~${elapsed} мин</span>
+      <div style="background:#f8fafc;border-radius:8px;padding:10px 16px;font-size:11px;color:#64748b;margin-bottom:22px;border:1px solid #e2e8f0">
+        Роль: <b style="color:#1e293b">${ROLE_NAMES[state.role]}</b> &nbsp;·&nbsp;
+        Дата: <b style="color:#1e293b">${date}</b> &nbsp;·&nbsp;
+        Время: <b style="color:#1e293b">~${elapsed} мин</b>
       </div>
 
-      <div style="font-size:11px;font-weight:bold;color:#5a6a8a;text-transform:uppercase;letter-spacing:2px;margin-bottom:10px">Результаты по блокам законодательства</div>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:20px">${lawRows}</table>
+      <div style="font-size:10px;font-weight:bold;color:#94a3b8;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Результаты по блокам законодательства</div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:22px">${lawRows}</table>
 
-      <div style="font-size:11px;font-weight:bold;color:#5a6a8a;text-transform:uppercase;letter-spacing:2px;margin-bottom:10px">Персональные рекомендации</div>
-      <ol style="padding-left:18px;font-size:12px;color:#b4c6e0;line-height:1.8;margin-bottom:${weakItemsHtml?'20px':'0'}">${recsHtml}</ol>
+      <div style="font-size:10px;font-weight:bold;color:#94a3b8;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px">Персональные рекомендации</div>
+      <ol style="padding-left:20px;font-size:12px;line-height:1.8;margin-bottom:${weakItemsHtml?'22px':'0'}">${recsHtml}</ol>
 
       ${weakItemsHtml ? `
-      <div style="background:#1a0f06;border-left:4px solid #f59e0b;border-radius:6px;padding:12px 16px">
-        <div style="font-size:11px;font-weight:bold;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Темы для повторения</div>
-        <ul style="padding-left:18px;font-size:12px;color:#d4b896;line-height:1.8;margin:0">${weakItemsHtml}</ul>
+      <div style="background:#fffbeb;border-left:4px solid #f59e0b;border-radius:6px;padding:14px 18px">
+        <div style="font-size:10px;font-weight:bold;color:#92400e;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Темы для повторения</div>
+        <ul style="padding-left:18px;font-size:12px;line-height:1.9;margin:0">${weakItemsHtml}</ul>
       </div>` : ''}
 
-      <div style="text-align:center;margin-top:30px;padding-top:12px;border-top:1px solid #2a3a5c;font-size:9px;color:#3a4a6a">
+      <div style="text-align:center;margin-top:28px;padding-top:12px;border-top:2px solid #c9a227;font-size:9px;color:#94a3b8">
         ЕА · БР | Антошина Елизавета | Бизнес-тренер медицинских команд | МедЗнания
       </div>
     </div>`;
+
+  document.getElementById('print-area').innerHTML = reportHtml;
+  return reportHtml;
 }
 
 function savePDF() {
-  buildReportHTML();
-  const content = document.getElementById('print-area').innerHTML;
+  const reportHtml = buildReportHTML();
   const date = new Date().toISOString().slice(0,10);
   const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">
     <title>МедЗнания_${ROLE_NAMES[state.role]}_${date}</title>
-    <style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0d1829;-webkit-print-color-adjust:exact;print-color-adjust:exact}@media print{body{margin:0}}</style>
-  </head><body>${content}</body></html>`;
+    <style>*{margin:0;padding:0;box-sizing:border-box}body{background:#fff}@page{margin:10mm}@media print{body{margin:0}}</style>
+  </head><body>${reportHtml}</body></html>`;
   const blob = new Blob([html], {type:'text/html;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const win = window.open(url, '_blank');
   win.addEventListener('load', () => {
-    setTimeout(() => { win.print(); URL.revokeObjectURL(url); }, 300);
+    setTimeout(() => { win.print(); URL.revokeObjectURL(url); }, 400);
   });
 }
 
