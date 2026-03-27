@@ -767,6 +767,22 @@ risks:{fine:'Нарушение порядка обработки ПДн (ст. 
 const STARS = ['','★','★★','★★★','★★★★'];
 const LEVEL_NAMES = ['','Базовый','Практический','Продвинутый','Эксперт'];
 const LAW_COLORS = {'ФЗ-323':'tag-323','ФЗ-152':'tag-152','ФЗ-326':'tag-326','ТК РФ':'tag-tk','Кросс':'tag-cross'};
+const TOPIC_NAMES = {
+  rights:    'Права пациента',
+  consent:   'Информированное согласие',
+  refusal:   'Отказ от лечения',
+  secret:    'Врачебная тайна',
+  pddata:    'Персональные данные',
+  oms:       'ОМС и страховые гарантии',
+  labor:     'Трудовые права медработников',
+  cross:     'Правовые связки',
+  expert:    'Экспертный уровень',
+  emergency: 'Экстренная помощь',
+  education: 'Наставничество (ФЗ-424)',
+  nmits:     'НМИЦ и клинрекомендации (ФЗ-515)',
+  bads:      'БАДы и реклама (ФЗ-150)',
+  registry:  'Федеральный регистр пациентов (ФЗ-304)',
+};
 
 const LAW_META = {
   'ФЗ-323':{name:'ФЗ-323 «Охрана здоровья»',color:'#3b82f6'},
@@ -882,7 +898,7 @@ function renderQuestion() {
   document.getElementById('level-pill').textContent = `${STARS[state.difficulty]} ${LEVEL_NAMES[state.difficulty]}`;
 
   const letters = ['А','Б','В','Г'];
-  const lawTagsHtml = q2.laws.map(l => `<span class="law-tag ${LAW_COLORS[l] || 'tag-323'}">${l}</span>`).join('');
+  const lawTagsHtml = q2.laws.map(l => `<span class="law-tag ${LAW_COLORS[l] || 'tag-323'}" title="${LAW_META[l]?.name||l}">${LAW_META[l]?.name||l}</span>`).join('');
   const scenarioHtml = q2.scenario ? `<div class="scenario-box">📍 ${q2.scenario}</div>` : '';
 
   document.getElementById('q-container').innerHTML = `
@@ -1169,14 +1185,22 @@ function saveAnalytics(role, correct, total, maxLevel) {
   // 2. Telegram — уведомление Елизавете после каждого прохождения
   const TG_TOKEN = '8682403971:AAGYm49AFTum3eTK_0bSG6ca-8GZg-1YnGg';
   const TG_CHAT  = '370403604';
-  const weakList = state.answers.filter(a=>!a.isCorrect).map(a=>Q.find(q=>q.id===a.id)?.topic).filter(Boolean);
-  const uniqueWeak = [...new Set(weakList)].join(', ') || '—';
+  const weakMap = new Map();
+  state.answers.filter(a=>!a.isCorrect).forEach(a=>{
+    const q = Q.find(x=>x.id===a.id);
+    if(!q) return;
+    const key = q.topic;
+    if(!weakMap.has(key)) weakMap.set(key, new Set());
+    q.laws.forEach(l => weakMap.get(key).add(l));
+  });
+  const uniqueWeak = weakMap.size === 0 ? '—'
+    : [...weakMap.entries()].map(([t,ls])=>`• ${TOPIC_NAMES[t]||t} [${[...ls].join(', ')}]`).join('\n');
   const text = `📊 <b>ЕАБР med — новое прохождение</b>\n\n`
     + `👤 Роль: <b>${ROLE_NAMES[role]}</b>\n`
     + `✅ Результат: <b>${correct}/${total} (${pct}%)</b>\n`
     + `⭐ Макс. уровень: <b>${STARS[maxLevel]} ${LEVEL_NAMES[maxLevel]}</b>\n`
-    + `❌ Слабые темы: ${uniqueWeak}\n`
-    + `📅 Дата: ${date}`;
+    + `📅 Дата: ${date}\n\n`
+    + `❌ <b>Слабые темы:</b>\n${uniqueWeak}`;
   fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -1207,50 +1231,69 @@ function downloadPDF() {
   else levelName = 'Базовый уровень';
 
   const recs = buildRecs(lawScores, pct, maxLevel);
-  const weakArr = [...new Set(state.answers.filter(a=>!a.isCorrect).map(a=>Q.find(q=>q.id===a.id)?.topic).filter(Boolean))];
   const date = new Date().toLocaleDateString('ru-RU');
+
+  // Weak topics with law labels
+  const weakTopicMap = new Map();
+  state.answers.filter(a=>!a.isCorrect).forEach(a=>{
+    const q = Q.find(x=>x.id===a.id); if(!q) return;
+    if(!weakTopicMap.has(q.topic)) weakTopicMap.set(q.topic, new Set());
+    q.laws.forEach(l=>weakTopicMap.get(q.topic).add(l));
+  });
+  const weakItemsHtml = [...weakTopicMap.entries()].map(([t,ls])=>
+    `<li style="margin-bottom:4px"><b>${TOPIC_NAMES[t]||t}</b> <span style="color:#b45309">[${[...ls].join(', ')}]</span></li>`
+  ).join('');
 
   const lawRows = Object.entries(lawScores).filter(([,s])=>s.total>0).map(([law,s])=>{
     const p = Math.round(s.correct/s.total*100);
     const col = p>=80?'#22c55e':p>=50?'#f59e0b':'#ef4444';
-    return `<tr>
-      <td>${LAW_META[law].name}</td>
-      <td><div style="background:#e5e7eb;border-radius:4px;height:8px;width:120px;display:inline-block;vertical-align:middle"><div style="background:${col};width:${p}%;height:100%;border-radius:4px"></div></div></td>
-      <td style="font-weight:bold;color:#92400e">${s.correct}/${s.total} (${p}%)</td>
+    return `<tr style="border-bottom:1px solid #2a3a5c">
+      <td style="padding:7px 0;color:#e2e8f0">${LAW_META[law].name}</td>
+      <td style="padding:7px 8px"><div style="background:#1e2d47;border-radius:4px;height:8px;width:110px;display:inline-block;vertical-align:middle"><div style="background:${col};width:${p}%;height:100%;border-radius:4px"></div></div></td>
+      <td style="padding:7px 0;font-weight:bold;color:#c9a227;text-align:right">${s.correct}/${s.total} (${p}%)</td>
     </tr>`;
   }).join('');
 
-  const recsHtml = recs.map((r,i)=>`<li>${r.replace(/<[^>]+>/g,'')}</li>`).join('');
+  const recsHtml = recs.map(r=>`<li style="margin-bottom:6px">${r.replace(/<[^>]+>/g,'')}</li>`).join('');
 
   document.getElementById('print-area').innerHTML = `
-    <div style="font-family:Arial,Helvetica,sans-serif;max-width:750px;margin:0 auto;color:#1e1e2e;padding:24px">
-      <div style="border-top:4px solid #c9a227;padding-top:14px;margin-bottom:18px">
-        <div style="font-size:10px;color:#999;letter-spacing:2px">ЕАБР · МЕД</div>
-        <h1 style="font-size:20px;color:#c9a227;margin:4px 0 2px">ПРАВОВОЙ ПРОФИЛЬ СПЕЦИАЛИСТА</h1>
-        <div style="font-size:10px;color:#aaa">МедЗнания · Антошина Елизавета · Бизнес-тренер медицинских команд · 2026</div>
+    <div style="font-family:Arial,Helvetica,sans-serif;background:#0d1829;color:#e2e8f0;min-height:100vh;padding:32px 36px;-webkit-print-color-adjust:exact;print-color-adjust:exact">
+      <div style="border-bottom:3px solid #c9a227;padding-bottom:14px;margin-bottom:20px">
+        <div style="font-size:10px;color:#5a6a8a;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px">ЕАБР · МЕД · МедЗнания</div>
+        <div style="font-size:22px;font-weight:bold;color:#c9a227;letter-spacing:1px">ПРАВОВОЙ ПРОФИЛЬ СПЕЦИАЛИСТА</div>
+        <div style="font-size:10px;color:#5a6a8a;margin-top:4px">Антошина Елизавета · Бизнес-тренер медицинских команд · 2026</div>
       </div>
-      <div style="display:flex;gap:14px;margin-bottom:14px">
-        <div style="flex:1;border:2px solid #c9a227;border-radius:8px;padding:14px;text-align:center">
-          <div style="font-size:38px;font-weight:bold;color:#c9a227;line-height:1">${correct}/${total}</div>
-          <div style="font-size:12px;color:#666;margin-top:4px">${pct}% · Итоговый балл</div>
+
+      <div style="display:flex;gap:14px;margin-bottom:18px">
+        <div style="flex:1;background:#132040;border:2px solid #c9a227;border-radius:10px;padding:16px;text-align:center">
+          <div style="font-size:44px;font-weight:bold;color:#c9a227;line-height:1">${correct}/${total}</div>
+          <div style="font-size:12px;color:#7a8aaa;margin-top:6px">${pct}% · Итоговый балл</div>
         </div>
-        <div style="flex:1;border:2px solid #c9a227;border-radius:8px;padding:14px;text-align:center;display:flex;flex-direction:column;justify-content:center">
-          <div style="font-size:16px;font-weight:bold;color:#c9a227">${levelName}</div>
-          <div style="font-size:12px;color:#666;margin-top:4px">Уровень знаний</div>
+        <div style="flex:1;background:#132040;border:2px solid #c9a227;border-radius:10px;padding:16px;text-align:center;display:flex;flex-direction:column;justify-content:center">
+          <div style="font-size:18px;font-weight:bold;color:#c9a227">${levelName}</div>
+          <div style="font-size:12px;color:#7a8aaa;margin-top:6px">Уровень знаний · ${STARS[maxLevel]}</div>
         </div>
       </div>
-      <div style="font-size:11px;color:#555;margin-bottom:16px">
-        Роль: <b>${ROLE_NAMES[state.role]}</b> &nbsp;·&nbsp;
-        Дата: <b>${date}</b> &nbsp;·&nbsp;
-        Время: <b>~${elapsed} мин</b> &nbsp;·&nbsp;
-        Уровень: <b>${STARS[maxLevel]} ${LEVEL_NAMES[maxLevel]}</b>
+
+      <div style="background:#0f1e35;border-radius:8px;padding:10px 14px;font-size:11px;color:#7a8aaa;margin-bottom:20px">
+        Роль: <span style="color:#b4c6e0;font-weight:bold">${ROLE_NAMES[state.role]}</span> &nbsp;·&nbsp;
+        Дата: <span style="color:#b4c6e0;font-weight:bold">${date}</span> &nbsp;·&nbsp;
+        Время: <span style="color:#b4c6e0;font-weight:bold">~${elapsed} мин</span>
       </div>
-      <h2 style="font-size:12px;color:#666;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #e5e7eb;padding-bottom:6px;margin-bottom:8px">Результаты по блокам законодательства</h2>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px">${lawRows}</table>
-      <h2 style="font-size:12px;color:#666;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #e5e7eb;padding-bottom:6px;margin-bottom:8px">Персональные рекомендации</h2>
-      <ol style="padding-left:18px;font-size:12px;color:#333;line-height:1.7">${recsHtml}</ol>
-      ${weakArr.length > 0 ? `<div style="margin-top:14px;background:#fffbeb;border-left:4px solid #f59e0b;padding:8px 12px;border-radius:4px;font-size:12px"><b>Темы для повторения:</b> ${weakArr.join(', ')}</div>` : ''}
-      <div style="text-align:center;margin-top:28px;padding-top:10px;border-top:2px solid #c9a227;font-size:9px;color:#aaa">
+
+      <div style="font-size:11px;font-weight:bold;color:#5a6a8a;text-transform:uppercase;letter-spacing:2px;margin-bottom:10px">Результаты по блокам законодательства</div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px">${lawRows}</table>
+
+      <div style="font-size:11px;font-weight:bold;color:#5a6a8a;text-transform:uppercase;letter-spacing:2px;margin-bottom:10px">Персональные рекомендации</div>
+      <ol style="padding-left:18px;font-size:12px;color:#b4c6e0;line-height:1.8;margin-bottom:${weakItemsHtml?'20px':'0'}">${recsHtml}</ol>
+
+      ${weakItemsHtml ? `
+      <div style="background:#1a0f06;border-left:4px solid #f59e0b;border-radius:6px;padding:12px 16px">
+        <div style="font-size:11px;font-weight:bold;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Темы для повторения</div>
+        <ul style="padding-left:18px;font-size:12px;color:#d4b896;line-height:1.8;margin:0">${weakItemsHtml}</ul>
+      </div>` : ''}
+
+      <div style="text-align:center;margin-top:30px;padding-top:12px;border-top:1px solid #2a3a5c;font-size:9px;color:#3a4a6a">
         ЕА · БР | Антошина Елизавета | Бизнес-тренер медицинских команд | МедЗнания
       </div>
     </div>`;
