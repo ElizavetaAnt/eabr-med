@@ -1360,7 +1360,7 @@ function saveAnalytics(role, correct, total, maxLevel) {
 // ══════════════════════════════════════════════════════
 // PDF REPORT
 // ══════════════════════════════════════════════════════
-function buildReportHTML() {
+function buildReportHTML(foxSvg='') {
   const total = state.answers.length;
   const correct = state.answers.filter(a => a.isCorrect).length;
   const pct = Math.round((correct / total) * 100);
@@ -1407,10 +1407,15 @@ function buildReportHTML() {
 
   const reportHtml = `
     <div style="font-family:Arial,Helvetica,sans-serif;background:#ffffff;color:#1e293b;padding:32px 36px;max-width:800px;margin:0 auto">
-      <div style="background:#1e3a5f;padding:20px 24px;border-radius:10px;margin-bottom:22px">
-        <div style="font-size:9px;color:#93c5fd;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px">ЕАБР · МЕД · МедЗнания</div>
-        <div style="font-size:22px;font-weight:bold;color:#fbbf24;letter-spacing:1px">ПРАВОВОЙ ПРОФИЛЬ СПЕЦИАЛИСТА</div>
-        <div style="font-size:10px;color:#93c5fd;margin-top:4px">Антошина Елизавета · Бизнес-тренер медицинских команд · 2026</div>
+      <div style="background:#1e3a5f;padding:20px 24px;border-radius:10px;margin-bottom:22px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:9px;color:#93c5fd;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px">МедЗнания · Правовой тренажёр</div>
+          <div style="font-size:22px;font-weight:bold;color:#fbbf24;letter-spacing:1px">ПРАВОВОЙ ПРОФИЛЬ СПЕЦИАЛИСТА</div>
+          <div style="font-size:10px;color:#93c5fd;margin-top:4px">Антошина Елизавета · Бизнес-тренер медицинских команд · 2026</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;color:#fbbf24;font-size:15px;font-weight:600;letter-spacing:1px">
+          <span>Е.А</span>${foxSvg}<span>Б.Р</span>
+        </div>
       </div>
 
       <div style="display:flex;gap:14px;margin-bottom:18px">
@@ -1442,8 +1447,9 @@ function buildReportHTML() {
         <ul style="padding-left:18px;font-size:12px;line-height:1.9;margin:0">${weakItemsHtml}</ul>
       </div>` : ''}
 
-      <div style="text-align:center;margin-top:28px;padding-top:12px;border-top:2px solid #c9a227;font-size:9px;color:#94a3b8">
-        ЕА · БР | Антошина Елизавета | Бизнес-тренер медицинских команд | МедЗнания
+      <div style="text-align:center;margin-top:28px;padding-top:12px;border-top:2px solid #c9a227;font-size:9px;color:#94a3b8;display:flex;align-items:center;justify-content:center;gap:6px">
+        <span>Е.А</span>${foxSvg ? foxSvg.replace('height:38px','height:22px') : ''}<span>Б.Р · med</span>
+        <span style="margin-left:8px">| Антошина Елизавета | Бизнес-тренер медицинских команд | МедЗнания</span>
       </div>
     </div>`;
 
@@ -1452,7 +1458,8 @@ function buildReportHTML() {
 }
 
 function savePDF() {
-  const reportHtml = buildReportHTML();
+  const foxSvg = document.getElementById('fox-master').outerHTML.replace('id="fox-master"','').replace('style="display:none"','style="height:38px;width:auto;display:inline-block;vertical-align:middle"');
+  const reportHtml = buildReportHTML(foxSvg);
   const date = new Date().toISOString().slice(0,10);
   const html = `<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">
     <title>МедЗнания_${ROLE_NAMES[state.role]}_${date}</title>
