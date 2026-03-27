@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>МедЗнания — Правовой тренажёр | Антошина Елизавета</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Montserrat:wght@500;600;700&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
@@ -217,6 +216,11 @@ body.fs-lg .land .sub{font-size:18px}
   .levels-row{grid-template-columns:1fr 1fr}
   .risks-grid{grid-template-columns:1fr}
   .site-footer{padding:20px 18px;flex-direction:column;align-items:flex-start}
+}
+#print-area{display:none}
+@media print{
+  body>*{display:none!important}
+  #print-area{display:block!important}
 }
 </style>
 </head>
@@ -859,9 +863,17 @@ function showScreen(id) {
 function renderQuestion() {
   const q = getNextQuestion();
   if (!q || state.answers.length >= 15) { showResults(); return; }
-  state.currentQ = q;
-  state.answered = false;
   state.asked.add(q.id);
+  state.answered = false;
+
+  // Shuffle answer options
+  const idx = [0,1,2,3].slice(0, q.options.length);
+  for (let i = idx.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [idx[i], idx[j]] = [idx[j], idx[i]];
+  }
+  const q2 = Object.assign({}, q, { options: idx.map(i => q.options[i]), correct: idx.indexOf(q.correct) });
+  state.currentQ = q2;
 
   const total = Math.min(15, Q.filter(x => x.roles.includes('all') || x.roles.includes(state.role)).length);
   const pct = (state.answers.length / total) * 100;
@@ -870,17 +882,17 @@ function renderQuestion() {
   document.getElementById('level-pill').textContent = `${STARS[state.difficulty]} ${LEVEL_NAMES[state.difficulty]}`;
 
   const letters = ['А','Б','В','Г'];
-  const lawTagsHtml = q.laws.map(l => `<span class="law-tag ${LAW_COLORS[l] || 'tag-323'}">${l}</span>`).join('');
-  const scenarioHtml = q.scenario ? `<div class="scenario-box">📍 ${q.scenario}</div>` : '';
+  const lawTagsHtml = q2.laws.map(l => `<span class="law-tag ${LAW_COLORS[l] || 'tag-323'}">${l}</span>`).join('');
+  const scenarioHtml = q2.scenario ? `<div class="scenario-box">📍 ${q2.scenario}</div>` : '';
 
   document.getElementById('q-container').innerHTML = `
-    <div class="law-tags">${lawTagsHtml}${q.level >= 3 ? '<span class="law-tag tag-cross">ПРАВОВАЯ СВЯЗКА</span>' : ''}</div>
+    <div class="law-tags">${lawTagsHtml}${q2.level >= 3 ? '<span class="law-tag tag-cross">ПРАВОВАЯ СВЯЗКА</span>' : ''}</div>
     <div class="qcard">
-      <div class="qnum">ВОПРОС ${state.answers.length + 1} · УРОВЕНЬ ${q.level}</div>
+      <div class="qnum">ВОПРОС ${state.answers.length + 1} · УРОВЕНЬ ${q2.level}</div>
       ${scenarioHtml}
-      <div class="qtext">${q.text}</div>
+      <div class="qtext">${q2.text}</div>
       <div class="options" id="opts">
-        ${q.options.map((o,i) => `
+        ${q2.options.map((o,i) => `
           <div class="opt" id="opt-${i}" onclick="selectAnswer(${i})">
             <div class="opt-letter">${letters[i]}</div>
             <span>${o}</span>
@@ -1173,13 +1185,13 @@ function saveAnalytics(role, correct, total, maxLevel) {
 }
 
 // ══════════════════════════════════════════════════════
-// PDF REPORT
+// PDF REPORT (browser print → PDF)
 // ══════════════════════════════════════════════════════
 function downloadPDF() {
   const total = state.answers.length;
   const correct = state.answers.filter(a => a.isCorrect).length;
   const pct = Math.round((correct / total) * 100);
-  const elapsed = Math.round((Date.now() - state.startTime) / 60000);
+  const elapsed = Math.round((Date.now() - state.startTime) / 60000) || 1;
   const maxLevel = Math.max(...state.answers.map(a => a.level));
 
   const lawScores = {};
@@ -1189,95 +1201,61 @@ function downloadPDF() {
   });
 
   let levelName;
-  if (pct >= 80) levelName = 'Продвинутый уровень';
+  if (pct >= 90) levelName = 'Экспертный уровень';
+  else if (pct >= 75) levelName = 'Продвинутый уровень';
   else if (pct >= 55) levelName = 'Средний уровень';
   else levelName = 'Базовый уровень';
 
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({unit:'mm',format:'a4'});
-
-  // Background
-  doc.setFillColor(8,13,24); doc.rect(0,0,210,297,'F');
-
-  // Gold stripe
-  doc.setFillColor(201,162,39); doc.rect(0,0,210,2,'F');
-
-  // Title
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(18); doc.setTextColor(201,162,39);
-  doc.text('ПРАВОВОЙ ПРОФИЛЬ СПЕЦИАЛИСТА', 20, 22);
-  doc.setFontSize(10); doc.setTextColor(90,106,138);
-  doc.text('МедЗнания · Антошина Елизавета · Бизнес-тренер медицинских команд · 2026', 20, 30);
-
-  doc.setDrawColor(201,162,39); doc.setLineWidth(0.3); doc.line(20,34,190,34);
-
-  // User info
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(10); doc.setTextColor(180,196,216);
-  doc.text(`Роль: ${ROLE_NAMES[state.role]}`, 20, 42);
-  doc.text(`Дата: ${new Date().toLocaleDateString('ru-RU')} · Время прохождения: ~${elapsed} мин`, 20, 49);
-  doc.text(`Достигнутый уровень сложности: ${STARS[maxLevel]} (${LEVEL_NAMES[maxLevel]})`, 20, 56);
-
-  // Score boxes
-  doc.setFillColor(19,29,48); doc.roundedRect(20,62,82,36,3,3,'F');
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(32); doc.setTextColor(201,162,39);
-  doc.text(`${correct}/${total}`, 61, 83, {align:'center'});
-  doc.setFontSize(9); doc.setTextColor(90,106,138);
-  doc.text(`${pct}% · ИТОГОВЫЙ БАЛЛ`, 61, 91, {align:'center'});
-
-  doc.setFillColor(19,29,48); doc.roundedRect(108,62,82,36,3,3,'F');
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(13); doc.setTextColor(232,187,58);
-  doc.text(levelName, 149, 80, {align:'center'});
-  doc.setFontSize(9); doc.setTextColor(90,106,138);
-  doc.text('УРОВЕНЬ ЗНАНИЙ', 149, 89, {align:'center'});
-
-  // Law breakdown
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(10); doc.setTextColor(90,106,138);
-  doc.text('РЕЗУЛЬТАТЫ ПО БЛОКАМ ЗАКОНОДАТЕЛЬСТВА', 20, 110);
-
-  const lawColors = {'ФЗ-323':[59,130,246],'ФЗ-152':[139,92,246],'ФЗ-326':[34,197,94],'ТК РФ':[249,115,22]};
-  let ly = 116;
-  Object.entries(lawScores).forEach(([law,s]) => {
-    if (s.total === 0) return;
-    const p = Math.round(s.correct/s.total*100);
-    const col = lawColors[law] || [200,200,200];
-    const status = p>=80?'✓':p>=50?'~':'!';
-    doc.setFillColor(19,29,48); doc.roundedRect(20,ly,170,11,2,2,'F');
-    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(232,237,245);
-    doc.text(`${status} ${LAW_META[law].name}`, 25, ly+7);
-    doc.setFillColor(40,50,70); doc.roundedRect(118,ly+3,50,5,1,1,'F');
-    doc.setFillColor(...col); doc.roundedRect(118,ly+3,p/2,5,1,1,'F');
-    doc.setFont('helvetica','bold'); doc.setTextColor(201,162,39);
-    doc.text(`${s.correct}/${s.total}`, 176, ly+7);
-    ly += 13;
-  });
-
-  ly += 4;
-
-  // Recommendations
-  doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(90,106,138);
-  doc.text('ПЕРСОНАЛЬНЫЕ РЕКОМЕНДАЦИИ', 20, ly);
-  ly += 8;
-
   const recs = buildRecs(lawScores, pct, maxLevel);
-  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(180,196,216);
-  recs.forEach((rec, i) => {
-    const clean = rec.replace(/<[^>]+>/g,'');
-    const lines = doc.splitTextToSize(`${i+1}. ${clean}`, 168);
-    lines.forEach(line => { if(ly < 275) { doc.text(line, 22, ly); ly += 5.5; }});
-    ly += 2;
-  });
+  const weakArr = [...new Set(state.answers.filter(a=>!a.isCorrect).map(a=>Q.find(q=>q.id===a.id)?.topic).filter(Boolean))];
+  const date = new Date().toLocaleDateString('ru-RU');
 
-  // Footer
-  doc.setFillColor(201,162,39); doc.rect(0,291,210,6,'F');
-  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(90,106,138);
-  doc.text('EA · BR | Антошина Елизавета | Бизнес-тренер медицинских команд | МедЗнания', 105, 288, {align:'center'});
+  const lawRows = Object.entries(lawScores).filter(([,s])=>s.total>0).map(([law,s])=>{
+    const p = Math.round(s.correct/s.total*100);
+    const col = p>=80?'#22c55e':p>=50?'#f59e0b':'#ef4444';
+    return `<tr>
+      <td>${LAW_META[law].name}</td>
+      <td><div style="background:#e5e7eb;border-radius:4px;height:8px;width:120px;display:inline-block;vertical-align:middle"><div style="background:${col};width:${p}%;height:100%;border-radius:4px"></div></div></td>
+      <td style="font-weight:bold;color:#92400e">${s.correct}/${s.total} (${p}%)</td>
+    </tr>`;
+  }).join('');
 
-  const date = new Date().toISOString().slice(0,10);
-  doc.save(`МедЗнания_отчёт_${ROLE_NAMES[state.role]}_${date}.pdf`);
+  const recsHtml = recs.map((r,i)=>`<li>${r.replace(/<[^>]+>/g,'')}</li>`).join('');
+
+  document.getElementById('print-area').innerHTML = `
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:750px;margin:0 auto;color:#1e1e2e;padding:24px">
+      <div style="border-top:4px solid #c9a227;padding-top:14px;margin-bottom:18px">
+        <div style="font-size:10px;color:#999;letter-spacing:2px">ЕАБР · МЕД</div>
+        <h1 style="font-size:20px;color:#c9a227;margin:4px 0 2px">ПРАВОВОЙ ПРОФИЛЬ СПЕЦИАЛИСТА</h1>
+        <div style="font-size:10px;color:#aaa">МедЗнания · Антошина Елизавета · Бизнес-тренер медицинских команд · 2026</div>
+      </div>
+      <div style="display:flex;gap:14px;margin-bottom:14px">
+        <div style="flex:1;border:2px solid #c9a227;border-radius:8px;padding:14px;text-align:center">
+          <div style="font-size:38px;font-weight:bold;color:#c9a227;line-height:1">${correct}/${total}</div>
+          <div style="font-size:12px;color:#666;margin-top:4px">${pct}% · Итоговый балл</div>
+        </div>
+        <div style="flex:1;border:2px solid #c9a227;border-radius:8px;padding:14px;text-align:center;display:flex;flex-direction:column;justify-content:center">
+          <div style="font-size:16px;font-weight:bold;color:#c9a227">${levelName}</div>
+          <div style="font-size:12px;color:#666;margin-top:4px">Уровень знаний</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#555;margin-bottom:16px">
+        Роль: <b>${ROLE_NAMES[state.role]}</b> &nbsp;·&nbsp;
+        Дата: <b>${date}</b> &nbsp;·&nbsp;
+        Время: <b>~${elapsed} мин</b> &nbsp;·&nbsp;
+        Уровень: <b>${STARS[maxLevel]} ${LEVEL_NAMES[maxLevel]}</b>
+      </div>
+      <h2 style="font-size:12px;color:#666;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #e5e7eb;padding-bottom:6px;margin-bottom:8px">Результаты по блокам законодательства</h2>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px">${lawRows}</table>
+      <h2 style="font-size:12px;color:#666;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #e5e7eb;padding-bottom:6px;margin-bottom:8px">Персональные рекомендации</h2>
+      <ol style="padding-left:18px;font-size:12px;color:#333;line-height:1.7">${recsHtml}</ol>
+      ${weakArr.length > 0 ? `<div style="margin-top:14px;background:#fffbeb;border-left:4px solid #f59e0b;padding:8px 12px;border-radius:4px;font-size:12px"><b>Темы для повторения:</b> ${weakArr.join(', ')}</div>` : ''}
+      <div style="text-align:center;margin-top:28px;padding-top:10px;border-top:2px solid #c9a227;font-size:9px;color:#aaa">
+        ЕА · БР | Антошина Елизавета | Бизнес-тренер медицинских команд | МедЗнания
+      </div>
+    </div>`;
+
+  window.print();
 }
 
 // ══════════════════════════════════════════════════════
@@ -1315,5 +1293,6 @@ function restartQuiz() {
   });
 })();
 </script>
+<div id="print-area"></div>
 </body>
 </html>
