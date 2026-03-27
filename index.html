@@ -199,7 +199,8 @@ body.fs-lg .expl-text{font-size:15px}
 body.fs-lg .land .sub{font-size:18px}
 
 /* ── FOOTER ── */
-.site-footer{border-top:1px solid rgba(201,162,39,.15);padding:28px 40px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-top:40px}
+.site-footer{border-top:1px solid rgba(201,162,39,.15);padding:28px 40px 20px;display:flex;flex-direction:column;gap:18px;margin-top:40px}
+.footer-top{display:flex;justify-content:space-between;align-items:center}
 .footer-links{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
 .footer-link{color:var(--muted2);font-size:13px;text-decoration:none;transition:color .15s;font-weight:500}
 .footer-link:hover{color:var(--gold)}
@@ -448,27 +449,32 @@ body.fs-lg .land .sub{font-size:18px}
 
 <!-- FOOTER -->
 <footer class="site-footer">
-  <div style="display:flex;flex-direction:column;line-height:1.5">
-    <span style="font-size:15px;font-weight:600;color:var(--text)">Антошина Елизавета</span>
-    <span style="font-size:11px;color:var(--muted)">Бизнес-тренер медицинских команд</span>
-    <div class="footer-links" style="margin-top:8px">
-      <a class="footer-link" href="https://t.me/eabrmed" target="_blank">Telegram</a>
-      <a class="footer-link" href="https://wa.me/74957286916" target="_blank">WhatsApp</a>
-      <a class="footer-link" href="tel:+74957286916">+7 (495) 728-69-16</a>
-      <a class="footer-link" href="https://ea-brmed.ru" target="_blank">ea-brmed.ru</a>
-      <a class="footer-link" href="https://www.instagram.com/elizavetaantb.r" target="_blank" rel="noopener">Кейсы · Фото</a>
+  <!-- Верхний ряд: имя слева, лого справа -->
+  <div class="footer-top">
+    <div style="display:flex;flex-direction:column;line-height:1.5">
+      <span style="font-size:15px;font-weight:600;color:var(--text)">Антошина Елизавета</span>
+      <span style="font-size:11px;color:var(--muted)">Бизнес-тренер медицинских команд</span>
     </div>
-    <div class="footer-copy" style="margin-top:6px">© ЕАБР · 2026 · Все права защищены</div>
-  </div>
-  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-    <div style="display:flex;align-items:center;gap:0">
-      <span class="logo-part" style="font-size:17px">Е<span class="logo-dot">.</span>А</span>
-      <span class="fox-slot" data-h="34" style="margin:0 5px"></span>
-      <span class="logo-part" style="font-size:17px">Б<span class="logo-dot">.</span>Р</span>
-      <span class="logo-med" style="font-size:11px;margin-left:12px">· med</span>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+      <div style="display:flex;align-items:center;gap:0">
+        <span class="logo-part" style="font-size:17px">Е<span class="logo-dot">.</span>А</span>
+        <span class="fox-slot" data-h="34" style="margin:0 5px"></span>
+        <span class="logo-part" style="font-size:17px">Б<span class="logo-dot">.</span>Р</span>
+        <span class="logo-med" style="font-size:11px;margin-left:12px">· med</span>
+      </div>
+      <span style="font-size:9px;color:var(--muted);letter-spacing:1px">МедЗнания · Правовой тренажёр</span>
     </div>
-    <span style="font-size:9px;color:var(--muted);letter-spacing:1px">МедЗнания · Правовой тренажёр</span>
   </div>
+  <!-- Средний ряд: контакты по центру -->
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;border-top:1px solid rgba(201,162,39,.1);border-bottom:1px solid rgba(201,162,39,.1);padding:14px 0">
+    <a class="footer-link" href="https://t.me/eabrmed" target="_blank">Telegram</a>
+    <a class="footer-link" href="https://wa.me/74957286916" target="_blank">WhatsApp</a>
+    <a class="footer-link" href="tel:+74957286916">+7 (495) 728-69-16</a>
+    <a class="footer-link" href="https://ea-brmed.ru" target="_blank">ea-brmed.ru</a>
+    <a class="footer-link" href="https://www.instagram.com/elizavetaantb.r" target="_blank" rel="noopener">Кейсы · Фото</a>
+  </div>
+  <!-- Нижний ряд: копирайт -->
+  <div class="footer-copy" style="text-align:center">© Антошина Елизавета, ЕАБР · 2026 · Все права защищены</div>
 </footer>
 </div><!-- /main-content -->
 
