@@ -811,8 +811,23 @@ function setFont(size) {
 (function(){ const f = localStorage.getItem('medznania_font'); if(f) setFont(f); })();
 
 // ══════════════════════════════════════════════════════
-// ANALYTICS (анонимно, без ПДн)
+// ANALYTICS (обезличенно: без имени и контактов; роль, балл и слабые темы
+// сохраняются в localStorage и передаются автору через серверную функцию)
 // ══════════════════════════════════════════════════════
+// URL серверной функции уведомлений (Supabase Edge Function quiz-notify).
+// Пока вместо <PROJECT_REF> не подставлен реальный ref проекта, отправка не выполняется.
+const NOTIFY_URL = 'https://<PROJECT_REF>.supabase.co/functions/v1/quiz-notify';
+function sendQuizNotify(payload) {
+  try {
+    if (!NOTIFY_URL || NOTIFY_URL.includes('<PROJECT_REF>') || typeof fetch !== 'function') return;
+    fetch(NOTIFY_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+      keepalive: true
+    }).catch(()=>{});
+  } catch(e) {}
+}
 function saveAnalytics(role, correct, total, maxLevel) {
   const pct = Math.round(correct/total*100);
   const date = new Date().toISOString().slice(0,10);
@@ -827,37 +842,26 @@ function saveAnalytics(role, correct, total, maxLevel) {
     localStorage.setItem('medznania_stats', JSON.stringify(data));
   } catch(e) {}
 
-  // 2. Telegram — уведомление Елизавете после каждого прохождения
-  const TG_TOKEN = '8682403971:AAGYm49AFTum3eTK_0bSG6ca-8GZg-1YnGg';
-  const TG_CHAT  = '370403604';
-  const weakMap = new Map();
-  state.answers.filter(a=>!a.isCorrect).forEach(a=>{
-    if(!a.topic) return;
-    if(!weakMap.has(a.topic)) weakMap.set(a.topic, new Set());
-    (a.laws||[]).forEach(l=>weakMap.get(a.topic).add(l));
-  });
-  const uniqueWeak = weakMap.size === 0 ? '—'
-    : [...weakMap.entries()].map(([t,ls])=>`• ${TOPIC_NAMES[t]||t} [${[...ls].join(', ')}]`).join('\n');
+  // 2. Уведомление автору через серверную функцию (обезличенно)
+  try {
+    const weakMap = new Map();
+    state.answers.filter(a=>!a.isCorrect).forEach(a=>{
+      if(!a.topic) return;
+      if(!weakMap.has(a.topic)) weakMap.set(a.topic, new Set());
+      (a.laws||[]).forEach(l=>weakMap.get(a.topic).add(l));
+    });
+    const weak = [...weakMap.entries()].slice(0, 60)
+      .map(([t,ls])=>({ topic: String(TOPIC_NAMES[t]||t).slice(0,160), laws: [...ls].slice(0,12).map(l=>String(l).slice(0,60)) }));
 
-  // Correct laws summary
-  const correctLaws = {};
-  state.answers.filter(a=>a.isCorrect).forEach(a=>{
-    a.laws.forEach(l=>{ correctLaws[l]=(correctLaws[l]||0)+1; });
-  });
-  const correctLawsStr = Object.entries(correctLaws).map(([l,n])=>`${l}: ${n} верно`).join(' · ') || '—';
+    const correctLaws = {};
+    state.answers.filter(a=>a.isCorrect).forEach(a=>{
+      (a.laws||[]).forEach(l=>{ correctLaws[l]=(correctLaws[l]||0)+1; });
+    });
+    const strong = Object.entries(correctLaws).slice(0, 40)
+      .map(([l,n])=>({ law: String(l).slice(0,60), n }));
 
-  const text = `📊 <b>ЕАБР med — новое прохождение</b>\n\n`
-    + `👤 Роль: <b>${ROLE_NAMES[role]}</b>\n`
-    + `✅ Результат: <b>${correct}/${total} (${pct}%)</b>\n`
-    + `⭐ Макс. уровень: <b>${STARS[maxLevel]} ${LEVEL_NAMES[maxLevel]}</b>\n`
-    + `📅 Дата: ${date}\n\n`
-    + `✔️ <b>Знает хорошо:</b> ${correctLawsStr}\n\n`
-    + `❌ <b>Слабые темы:</b>\n${uniqueWeak}`;
-  fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ chat_id: TG_CHAT, text, parse_mode: 'HTML' })
-  }).catch(()=>{});
+    sendQuizNotify({ source: 'med', role, correct, total, maxLevel, strong, weak });
+  } catch(e) {}
 }
 
 // ══════════════════════════════════════════════════════
